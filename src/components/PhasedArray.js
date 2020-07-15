@@ -9,7 +9,7 @@ export class PhasedArray extends React.Component{
   width = 0;
   height = 0;
   svgContainer = null;
-  distance = .125;
+  distance = .25;
   svgMargin = 20;
   graphWidth  = 0;
   graphHeight = 0;
@@ -21,7 +21,7 @@ export class PhasedArray extends React.Component{
                    .y(function(d){
                      return d.y;
                    })
-                   .curve(d3.curveNatural);
+                   .curve(d3.curveLinearClosed);
 
   state = {
     elements: 2,
@@ -144,12 +144,12 @@ export class PhasedArray extends React.Component{
           elements_pos[j][1]
         ];
         let prod = K_val*(r_vec[0]*k_vec[0] + r_vec[1]*k_vec[1]);
-        out_real += A[j]*Math.cos(-prod + p[j]*Math.PI/180.0);
-        out_imag += A[j]*Math.sin(-prod + p[j]*Math.PI/180.0);
+        out_real += A[j]*Math.cos(-prod - p[j]*Math.PI/180.0);
+        out_imag += A[j]*Math.sin(-prod - p[j]*Math.PI/180.0);
       }
       let y;
       if(this.state.logEnabled){
-        y = 20*Math.log(out_real**2+out_imag**2+1e-3);
+        y = 20*Math.log(out_real**2+out_imag**2+1e-6);
       } else {
         y = Math.sqrt(out_real**2+out_imag**2);
       }
@@ -160,12 +160,12 @@ export class PhasedArray extends React.Component{
         'y': y
       })
     }
-    lineData.push(lineData[0]);
     let lineDataFinal = [];
-    for(let i = 0; i <= N; i++){
+
+    for(let i = 0; i < N; i++){
       let tmp_x = lineData[i].x
       let tmp_y = lineData[i].y
-      let tmp_r = (1 - (tmp_y - min_val)/(max_val - min_val)*graphHeight/2);
+      let tmp_r = ((tmp_y)/(max_val)*graphHeight/2);
       lineDataFinal.push({
         'x': tmp_r*Math.cos(tmp_x*Math.PI/180.0) + width/2,
         'y': tmp_r*Math.sin(tmp_x*Math.PI/180.0) + height/2,
