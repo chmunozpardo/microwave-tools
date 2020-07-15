@@ -5,78 +5,178 @@ import * as d3 from 'd3';
 export class PhasedArray extends React.Component{
   svgRef = createRef(null);
   parametersRef = createRef(null);
-  maxElements = 10;
+  maxElements = 20;
   width = 0;
   height = 0;
   svgContainer = null;
+  distance = .125;
+  svgMargin = 20;
+  graphWidth  = 0;
+  graphHeight = 0;
+
+  lineFunction = d3.line()
+                   .x(function(d){
+                     return d.x;
+                   })
+                   .y(function(d){
+                     return d.y;
+                   })
+                   .curve(d3.curveNatural);
 
   state = {
-    elements: 1,
-    arrayElements: []
+    elements: 2,
+    logEnabled: true,
+    arrayElements: [
+      {
+        amplitude: 1.0,
+        phase: 0.0,
+        position: [0.0, 0.0]
+      },
+      {
+        amplitude: 1.0,
+        phase: 0.0,
+        position: [this.distance, 0.0]
+      }
+    ]
   };
 
   elementsOnChange = (e) => {
     let numberInput = Number(e.target.value);
-    if(numberInput < 1) {
-      numberInput = 1;
+    let oldInput = this.state.elements;
+    if (numberInput < 2) {
+      numberInput = 2;
     } else if (numberInput > this.maxElements) {
       numberInput = this.maxElements;
     }
+    let tempElements = this.state.arrayElements;
+    let diff = numberInput - oldInput;
+    if(diff > 0){
+      for(let i = 0; i < diff; i++){
+        tempElements.push({
+          amplitude: 1.0,
+          phase: 0.0,
+          position: [
+            (oldInput + i)*this.distance,
+            0.0
+          ]
+        });
+      }
+    }
+    if(diff < 0){
+      for(let i = 0; i < -diff; i++){
+        tempElements.pop();
+      }
+    }
     this.setState({
-      elements: numberInput
-    });
+      elements: numberInput,
+      arrayElements: tempElements
+    },
+    this.plot);
   }
 
   componentDidMount(){
     this.svgContainer = d3.select(this.svgRef.current);
     this.width = parseFloat(this.svgContainer.style('width'));
     this.height = parseFloat(this.svgContainer.style('height'));
+    this.graphWidth = this.width - 2*this.svgMargin;
+    this.graphHeight = this.height - 2*this.svgMargin;
     this.svgContainer.append('svg')
                 .attr('width', this.width)
                 .attr('height', this.height);
-    var arrayElements = [];
-    for(let i = 0; i < this.maxElements; i++){
-      arrayElements.push({
-        amplitude: 1,
-        phase: 1
-      });
+    let svg = this.svgContainer.select('svg');
+    for(let i = 1; i <= 5; i++){
+      svg.append('circle')
+       .attr('r', (this.graphHeight*i/5)/2)
+       .attr('cx', this.width/2)
+       .attr('cy', this.height/2)
+       .attr('fill', 'none')
+       .attr('stroke', 'gray')
+       .attr('stroke-width', 2)
+       .attr('stroke-dasharray', 5)
     }
-    this.setState({
-      arrayElements: arrayElements
-    })
+    for(let i = 0; i < 8; i++){
+      let r = (this.graphHeight)/2;
+      svg.append('line')
+       .attr('x1', this.width/2)
+       .attr('y1', this.height/2)
+       .attr('x2', this.width/2 + r*Math.cos((2*Math.PI)*i/8))
+       .attr('y2', this.height/2 + r*Math.sin((2*Math.PI)*i/8))
+       .attr('stroke', 'lightgray')
+       .attr('stroke-width', 2)
+    }
+    this.plot();
   };
 
+
+
   plot = () => {
-    var svgMargin = 0;
-    var width = this.width;
-    var height = this.height;
-    var graphWidth  = width - svgMargin*2;
-    var graphHeight = height - svgMargin*2;
-    var N = 50;
-    var xRange = 720;
+    let svgMargin = this.svgMargin;
+    let width = this.width;
+    let height = this.height;
+    let graphWidth  = width - svgMargin*2;
+    let graphHeight = height - svgMargin*2;
+    let N = 256;
+    let xRange = 360.0;
+    let lambda = 1.0;
+    let K_val = 2*Math.PI/lambda;
     let lineData = [];
-    let A = this.state.arrayElements[0].amplitude;
-    let phi = this.state.arrayElements[0].phase;
+    let A = [];
+    let p = [];
+    let elements_pos = [];
+    for(let i = 0; i < this.state.arrayElements.length; i++){
+      A.push(this.state.arrayElements[i].amplitude);
+      p.push(this.state.arrayElements[i].phase);
+      elements_pos.push(this.state.arrayElements[i].position);
+    }
+    let min_val = 1000;
+    let max_val = -1000;
     for(let i = 0; i < N; i++){
       let x = xRange*i/N;
-      let y = A*Math.sin((x + phi)*Math.PI/180.0);
-      lineData.push({'x': x*graphWidth/xRange + svgMargin, 'y': y*graphHeight/2 + graphHeight/2 + svgMargin})
+      let out_real = 0;
+      let out_imag = 0;
+      for(let j = 0; j < elements_pos.length; j++){
+        let r_vec = [
+          Math.cos(x*Math.PI/180.0),
+          Math.sin(x*Math.PI/180.0)
+        ];
+        let k_vec = [
+          elements_pos[j][0],
+          elements_pos[j][1]
+        ];
+        let prod = K_val*(r_vec[0]*k_vec[0] + r_vec[1]*k_vec[1]);
+        out_real += A[j]*Math.cos(-prod + p[j]*Math.PI/180.0);
+        out_imag += A[j]*Math.sin(-prod + p[j]*Math.PI/180.0);
+      }
+      let y;
+      if(this.state.logEnabled){
+        y = 20*Math.log(out_real**2+out_imag**2+1e-3);
+      } else {
+        y = Math.sqrt(out_real**2+out_imag**2);
+      }
+      if(y < min_val) min_val = y;
+      if(y > max_val) max_val = y;
+      lineData.push({
+        'x': x,
+        'y': y
+      })
     }
-    var svg = this.svgContainer.select('svg');
-
-    var lineFunction = d3.line()
-                             .x(function(d){
-                                return d.x;
-                              })
-                             .y(function(d){
-                               return d.y;
-                              })
-                             .curve(d3.curveNatural);
-
-    svg.selectAll('path').remove();
+    lineData.push(lineData[0]);
+    let lineDataFinal = [];
+    for(let i = 0; i <= N; i++){
+      let tmp_x = lineData[i].x
+      let tmp_y = lineData[i].y
+      let tmp_r = (1 - (tmp_y - min_val)/(max_val - min_val)*graphHeight/2);
+      lineDataFinal.push({
+        'x': tmp_r*Math.cos(tmp_x*Math.PI/180.0) + width/2,
+        'y': tmp_r*Math.sin(tmp_x*Math.PI/180.0) + height/2,
+      })
+    }
+    let svg = this.svgContainer.select('svg');
+    svg.select('#path_phased').remove();
     svg.append('path')
-       .attr('d', lineFunction(lineData))
-       .attr('stroke', 'blue')
+       .attr('id', 'path_phased')
+       .attr('d', this.lineFunction(lineDataFinal))
+       .attr('stroke', 'black')
        .attr('stroke-width', 2)
        .attr('fill', 'none');
   }
@@ -95,24 +195,26 @@ export class PhasedArray extends React.Component{
       singleElement.amplitude = Number(event.target.value);
     } else if(stringID === "phase"){
       singleElement.phase = Number(event.target.value);
+    } else if(stringID === "posX"){
+      singleElement.position[0] = Number(event.target.value);
+    } else if(stringID === "posY"){
+      singleElement.position[1] = Number(event.target.value);
     }
     arrayElements[elementID] = singleElement;
     this.setState(
       {arrayElements},
-      () => {
-        this.plot();
-      }
+      this.plot
     );
-  }
-
-  calculateArrayFactor = () => {
   }
 
   generateParameters = () => {
     var rows = [];
     for(let i = 0; i < this.state.elements; i++){
         rows.push(
-          <Row key={i}>
+          <Row key={i} className='box-2 mt-2'>
+            <Col xs={12}>
+              Element Number {i+1}
+            </Col>
             <Col xs={6}>
                 <Form.Group controlId={"amplitude_" + i} xs={6}>
                   <Form.Label>Amplitude</Form.Label>
@@ -120,13 +222,13 @@ export class PhasedArray extends React.Component{
                     onChange={this.updateElement}
                     type="number"
                     placeholder="Amplitude"
-                    value={this.arrayElements && this.arrayElements[i].amplitude}
+                    value={this.state.arrayElements && this.state.arrayElements[i].amplitude}
                     step="0.02"
-                    min="-2"
-                    max="2" />
+                    min="-10"
+                    max="10" />
                   <Form.Text
                     className="text-muted">
-                    Linear amplitude of the {i+1} element
+                    Linear amplitude of the {i + 1} element
                   </Form.Text>
                 </Form.Group>
               </Col>
@@ -137,12 +239,46 @@ export class PhasedArray extends React.Component{
                     onChange={this.updateElement}
                     type="number"
                     placeholder="Phase"
-                    value={this.arrayElements && this.arrayElements[i].phase}
-                    min="1"
-                    max="360"/>
+                    value={this.state.arrayElements && this.state.arrayElements[i].phase}
+                    step="0.1"
+                    min="-180.0"
+                    max="180.0"/>
                   <Form.Text
                     className="text-muted">
-                    Linear phase of the {i+1} element
+                    Linear phase of the {i + 1} element
+                  </Form.Text>
+                </Form.Group>
+              </Col><Col xs={6}>
+                <Form.Group controlId={"posX_" + i} xs={6}>
+                  <Form.Label>Position X</Form.Label>
+                  <Form.Control
+                    onChange={this.updateElement}
+                    type="number"
+                    placeholder="Position X"
+                    value={this.state.arrayElements && this.state.arrayElements[i].position[0]}
+                    step="0.001"
+                    min="-10"
+                    max="10" />
+                  <Form.Text
+                    className="text-muted">
+                    X position of the {i + 1} element
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col xs={6}>
+                <Form.Group controlId={"posY_" + i} xs={6}>
+                  <Form.Label>Position Y</Form.Label>
+                  <Form.Control
+                    onChange={this.updateElement}
+                    type="number"
+                    placeholder="Position Y"
+                    value={this.state.arrayElements && this.state.arrayElements[i].position[1]}
+                    step="0.001"
+                    min="-10.0"
+                    max="10.0"/>
+                  <Form.Text
+                    className="text-muted">
+                    Y position of the {i + 1} element
                   </Form.Text>
                 </Form.Group>
               </Col>
@@ -152,33 +288,53 @@ export class PhasedArray extends React.Component{
     return(rows);
   }
 
+  changePlotType = (event) => {
+    let logEnabled = !this.state.logEnabled;
+    this.setState(
+      {logEnabled},
+      this.plot
+    )
+  }
+
   render() {
     return (
-      <Container className='mw-100'>
-        <Row className='flex'>
-          <Col xs={{span: 8, offset: 1}} ref={this.svgRef}>
+      <Container fluid className='mw-100 h-100'>
+        <Row className='h-100'>
+          <Col
+            className='border-box p-0'
+            xs={{span: 8, offset: 1}}
+            ref={this.svgRef}>
           </Col>
-          <Col xs= {3}>
+          <Col xs= {3} className='scrollable mt-3'>
             <Form onSubmit={this.asdf}>
-              <Row>
-                <Col xs={6}>
-                  <Form.Group controlId="formElem" xs={6}>
-                    <Form.Label>Elements</Form.Label>
-                    <Form.Control
-                      onChange={this.elementsOnChange}
-                      type="number"
-                      value={this.state.elements}
-                      min="1"
-                      max="10"/>
-                    <Form.Text
-                      className="text-muted">
-                      Number of elements used in the array.
-                    </Form.Text>
-                  </Form.Group>
-                </Col>
-                <Col xs={6}>
-                </Col>
-              </Row>
+              <Container>
+                <Row className='mt-1 box-2'>
+                  <Col xs={6}>
+                    <Form.Group controlId="formElem" xs={6}>
+                      <Form.Label>Elements</Form.Label>
+                      <Form.Control
+                        onChange={this.elementsOnChange}
+                        type="number"
+                        value={this.state.elements}
+                        min="2"
+                        max={this.maxElements}/>
+                      <Form.Text
+                        className="text-muted">
+                        Number of elements used in the array.
+                      </Form.Text>
+                    </Form.Group>
+                  </Col>
+                  <Col xs={6}>
+                    <Form.Group controlId="formLog">
+                      <Form.Check
+                        onChange={this.changePlotType}
+                        checked={this.state.logEnabled}
+                        type="checkbox"
+                        label="Logarithmic plot" />
+                    </Form.Group>
+                  </Col>
+                </Row>
+              </Container>
               <Container ref={this.parametersRef}>
                 {this.generateParameters()}
               </Container>
