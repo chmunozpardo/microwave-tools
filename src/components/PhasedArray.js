@@ -13,6 +13,14 @@ export class PhasedArray extends React.Component{
   svgMargin = 20;
   graphWidth  = 0;
   graphHeight = 0;
+  ringsN = 10;
+  linesN = 8;
+  maxLog = 0;
+  minLog = -100;
+  maxLin = 1;
+  minLin = 0;
+  min_val = this.minLog;
+  max_val = this.maxLog;
 
   lineFunction = d3.line()
                    .x(function(d){
@@ -74,6 +82,12 @@ export class PhasedArray extends React.Component{
     this.plot);
   }
 
+  textGridHelp = (j) => {
+      let x = (1 - j/this.ringsN);
+      let m = (this.min_val - this.max_val)/(this.ringsN);
+      return j*m+this.max_val;
+  }
+
   componentDidMount(){
     this.svgContainer = d3.select(this.svgRef.current);
     this.width = parseFloat(this.svgContainer.style('width'));
@@ -84,30 +98,37 @@ export class PhasedArray extends React.Component{
                 .attr('width', this.width)
                 .attr('height', this.height);
     let svg = this.svgContainer.select('svg');
-    for(let i = 1; i <= 5; i++){
+    for(let i = 0; i < this.ringsN; i++){
       svg.append('circle')
-       .attr('r', (this.graphHeight*i/5)/2)
-       .attr('cx', this.width/2)
-       .attr('cy', this.height/2)
-       .attr('fill', 'none')
-       .attr('stroke', 'gray')
-       .attr('stroke-width', 2)
-       .attr('stroke-dasharray', 5)
+         .attr('r', (this.graphHeight*(i+1)/this.ringsN)/2)
+         .attr('cx', this.width/2)
+         .attr('cy', this.height/2)
+         .attr('fill', 'none')
+         .attr('stroke', 'lightgray')
+         .attr('stroke-width', 2)
+         .attr('stroke-dasharray', 5)
     }
-    for(let i = 0; i < 8; i++){
+    for(let i = 0; i < this.linesN; i++){
       let r = (this.graphHeight)/2;
       svg.append('line')
-       .attr('x1', this.width/2)
-       .attr('y1', this.height/2)
-       .attr('x2', this.width/2 + r*Math.cos((2*Math.PI)*i/8))
-       .attr('y2', this.height/2 + r*Math.sin((2*Math.PI)*i/8))
-       .attr('stroke', 'lightgray')
-       .attr('stroke-width', 2)
+         .attr('x1', this.width/2)
+         .attr('y1', this.height/2)
+         .attr('x2', this.width/2 + r*Math.cos((2*Math.PI)*i/this.linesN))
+         .attr('y2', this.height/2 + r*Math.sin((2*Math.PI)*i/this.linesN))
+         .attr('stroke', 'lightgray')
+         .attr('stroke-width', 2)
+      for(let j = 0; j < this.ringsN; j++){
+          svg.append('text')
+              .attr('id', 'gridText')
+              .attr('x', this.width/2 + r*(this.ringsN-j)/this.ringsN*Math.cos((2*Math.PI)*i/this.linesN))
+              .attr('y', this.height/2 + r*(this.ringsN-j)/this.ringsN*Math.sin((2*Math.PI)*i/this.linesN))
+              .attr('fill', 'gray')
+              .attr('font-size', '14px')
+              .text(this.textGridHelp(j));
+      }
     }
     this.plot();
   };
-
-
 
   plot = () => {
     let svgMargin = this.svgMargin;
@@ -128,7 +149,7 @@ export class PhasedArray extends React.Component{
       p.push(this.state.arrayElements[i].phase);
       elements_pos.push(this.state.arrayElements[i].position);
     }
-    let min_val = 1000;
+    let min_val = this.state.logEnabled ? -100 : 0;
     let max_val = -1000;
     for(let i = 0; i < N; i++){
       let x = xRange*i/N;
@@ -150,10 +171,11 @@ export class PhasedArray extends React.Component{
       let y;
       if(this.state.logEnabled){
         y = 20*Math.log(out_real**2+out_imag**2+1e-6);
+        if(y < min_val) y = min_val;
+
       } else {
         y = Math.sqrt(out_real**2+out_imag**2);
       }
-      if(y < min_val) min_val = y;
       if(y > max_val) max_val = y;
       lineData.push({
         'x': x,
@@ -165,7 +187,7 @@ export class PhasedArray extends React.Component{
     for(let i = 0; i < N; i++){
       let tmp_x = lineData[i].x
       let tmp_y = lineData[i].y
-      let tmp_r = ((tmp_y)/(max_val)*graphHeight/2);
+      let tmp_r = ((tmp_y - min_val)/(max_val - min_val)*graphHeight/2);
       lineDataFinal.push({
         'x': tmp_r*Math.cos(tmp_x*Math.PI/180.0) + width/2,
         'y': tmp_r*Math.sin(tmp_x*Math.PI/180.0) + height/2,
@@ -290,6 +312,22 @@ export class PhasedArray extends React.Component{
 
   changePlotType = (event) => {
     let logEnabled = !this.state.logEnabled;
+    this.min_val = logEnabled ? this.minLog : this.minLin;
+    this.max_val = logEnabled ? this.maxLog : this.maxLin;
+    let svg = this.svgContainer.select('svg');
+    svg.selectAll('#gridText').remove();
+    for(let i = 0; i < this.linesN; i++){
+      let r = (this.graphHeight)/2;
+      for(let j = 0; j < this.ringsN; j++){
+          svg.append('text')
+              .attr('id', 'gridText')
+              .attr('x', this.width/2 + r*(this.ringsN-j)/this.ringsN*Math.cos((2*Math.PI)*i/this.linesN))
+              .attr('y', this.height/2 + r*(this.ringsN-j)/this.ringsN*Math.sin((2*Math.PI)*i/this.linesN))
+              .attr('fill', 'gray')
+              .attr('font-size', '14px')
+              .text(this.textGridHelp(j));
+      }
+    }
     this.setState(
       {logEnabled},
       this.plot
