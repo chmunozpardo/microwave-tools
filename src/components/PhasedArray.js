@@ -1,29 +1,28 @@
 import React, { createRef } from 'react'
-import { Row, Col, Form, Container } from 'react-bootstrap';
+import { Row, Col, Form, Container, Tabs, Tab} from 'react-bootstrap';
 import * as d3 from 'd3';
 import {arrayFactor} from '../utils/PhasedArray.js'
-import {textGridHelp, plotRings, plotLabels} from '../utils/Plots.js'
+import {textGridHelp,
+        plotRings,
+        plotLabels,
+        plotGrid,
+        plotElements
+       } from '../utils/Plots.js'
 
 export class PhasedArray extends React.Component{
   svgRef = createRef(null);
+  svgGridRef = createRef(null);
   svgGraph = {};
   parametersRef = createRef(null);
   maxElements = 20;
-  width = 0;
-  height = 0;
   svgContainer = null;
-  distance = .5;
-  svgMargin = 20;
-  graphWidth  = 0;
-  graphHeight = 0;
-  ringsN = 8;
-  linesN = 8;
+  svgGridContainer = null;
+  distanceX = 0.25;
+  distanceY = 0;
   maxLog = 0;
   minLog = -40;
   maxLin = 1;
   minLin = 0;
-  min_val = this.minLog;
-  max_val = this.maxLog;
 
   lineFunction = d3.line()
                    .x(function(d){
@@ -46,7 +45,7 @@ export class PhasedArray extends React.Component{
       {
         amplitude: 1.0,
         phase: 0.0,
-        position: [this.distance, 0.0]
+        position: [this.distanceX, this.distanceY]
       }
     ]
   };
@@ -67,8 +66,8 @@ export class PhasedArray extends React.Component{
           amplitude: 1.0,
           phase: 0.0,
           position: [
-            (oldInput + i)*this.distance,
-            0.0
+            (oldInput + i)*this.distanceX,
+            (oldInput + i)*this.distanceY,
           ]
         });
       }
@@ -79,37 +78,52 @@ export class PhasedArray extends React.Component{
       }
     }
     this.setState({
-      elements: numberInput,
-      arrayElements: tempElements
-    },
-    this.plot);
+        elements: numberInput,
+        arrayElements: tempElements
+      },
+      () => {
+        this.plot();
+        plotElements(this.state.arrayElements, this.svgGraph);
+      }
+    );
   }
 
   componentDidMount(){
     this.svgContainer = d3.select(this.svgRef.current);
-    let width = parseFloat(this.svgContainer.style('width'));
-    let height = parseFloat(this.svgContainer.style('height'));
+    this.svgGridContainer = d3.select(this.svgGridRef.current);
+    let temp_w = parseFloat(this.svgContainer.style('width'));
+    let temp_h = parseFloat(this.svgContainer.style('height'));
+    let width = Math.min(temp_w, temp_h);
+    let height = Math.min(temp_w, temp_h);
     let svgMargin = 20;
     let graphWidth = width - 2*svgMargin;
     let graphHeight = height - 2*svgMargin;
-    let minVal = this.min_val;
-    let maxVal = this.max_val;
+    let minVal = this.minLog;
+    let maxVal = this.maxLog;
     let svg = this.svgContainer.append('svg')
                                .attr('width' , width)
                                .attr('height', height);
+    let svgGrid = this.svgGridContainer.append('svg')
+                               .attr('width' , width)
+                               .attr('height', height);
+
     this.svgGraph = {
       logEnabled: this.state.logEnabled,
       svg,
+      svgGrid,
       width,
       height,
       graphWidth,
       graphHeight,
+      svgMargin,
       minVal,
       maxVal,
       rings: 8,
-      lines: 16,
+      lines: 8,
     }
     plotRings(this.svgGraph);
+    plotGrid(this.svgGraph);
+    plotElements(this.state.arrayElements, this.svgGraph);
     this.plot();
   };
 
@@ -150,7 +164,10 @@ export class PhasedArray extends React.Component{
     arrayElements[elementID] = singleElement;
     this.setState(
       {arrayElements},
-      this.plot
+      () => {
+        this.plot();
+        plotElements(this.state.arrayElements, this.svgGraph);
+      }
     );
   }
 
@@ -243,7 +260,7 @@ export class PhasedArray extends React.Component{
     plotLabels(this.svgGraph);
     this.setState(
       {logEnabled},
-      this.plot
+        this.plot
     )
   }
 

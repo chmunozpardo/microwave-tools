@@ -36,7 +36,7 @@ export function arrayFactor(elements, svgGraph){
     let tmp_a = tmp_y/max_val;
     let tmp_r = 0;
     if(svgGraph.logEnabled){
-      let tmp_val = Math.max(svgGraph.minVal, 10*Math.log10(tmp_a));
+      let tmp_val = Math.max(svgGraph.minVal, 20*Math.log10(tmp_a));
       tmp_r = (1-tmp_val/svgGraph.minVal)*svgGraph.graphHeight/2;
     } else {
       tmp_r = tmp_a*svgGraph.graphHeight/2;;
