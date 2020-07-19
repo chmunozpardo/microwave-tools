@@ -2,10 +2,6 @@ html, body {
   height: 100%;
 }
 
-body{
-
-}
-
 #root{
   height: 100%;
   display: flex;
@@ -59,4 +55,19 @@ body{
 .scrollable{
   overflow-y: auto;
   height:100%;
+}
+
+.tab-content{
+  height: 100%;
+  width: 100%
+}
+
+.tab-content>.active {
+  display: inline-flex;
+  height: 100%;
+  width: 100%
+}
+
+.grid_element {
+  cursor: move;
 }

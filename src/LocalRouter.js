@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { Route, Switch, withRouter } from 'react-router-dom';
 import Impedance from './components/Impedance';
 import { TransitionGroup, CSSTransition } from "react-transition-group";
-import { Container, Row } from 'react-bootstrap';
 import { PhasedArray } from './components/PhasedArray';
 
 class LocalRouter extends Component {
@@ -18,6 +17,9 @@ class LocalRouter extends Component {
              <Switch>
                 <Route path="/phased_array">
                   <PhasedArray />
+                </Route>
+                <Route path="/impedance">
+                  <Impedance />
                 </Route>
               </Switch>
           </CSSTransition>
