@@ -6,9 +6,8 @@ ReactJS RF tools projects that I'm working on, the idea is to add basic function
    - Plot 2D polar plot
    - Variable number of elements
    - Editable parameters: amplitude, phase and position
+   - Phased array elements position can be dragged on a grid
  
  ## Roadmap
- 
- - Phased array polar plot gain labels
- - Phased array elements position grid
+
  - Add distributed elements calculator
