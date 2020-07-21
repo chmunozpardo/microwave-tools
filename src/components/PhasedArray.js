@@ -1,21 +1,13 @@
 import React, { createRef } from 'react'
 import { Row, Col, Form, Container, Tabs, Tab} from 'react-bootstrap';
 import * as d3 from 'd3';
-import {plotPolarGrid,
-        plotPolarLabels,
-        plotRectangularGrid,
-        plotPolarElements,
-        plotGridElements,
-        plotLogAF,
-        plotPolarMarker,
-        plotLinearAF,
-       } from '../utils/Plots.js'
+import {PlotUtil} from '../utils/Plots.js'
 
 export class PhasedArray extends React.Component{
   constructor(props){
     super(props);
-    let distanceX = 0.25;
-    let distanceY = 0.00;
+    let distanceX = 0.707;
+    let distanceY = 0.707;
     this.maxLog =   0.0;
     this.minLog = -40.0;
     this.maxLin =   1.0;
@@ -23,6 +15,8 @@ export class PhasedArray extends React.Component{
     this.linMarker =  0.5;
     this.logMarker = -3.0;
     this.state = {
+      divisions: 8,
+      margin: 40,
       distanceX: distanceX,
       distanceY: distanceY,
       svgGridRef:    createRef(null),
@@ -82,44 +76,22 @@ export class PhasedArray extends React.Component{
   }
 
   initiateGrids = () => {
-    plotPolarGrid(
-      this.state.svgPolar, 8, 8, this.state.center, this.state.radius
-    );
-    plotRectangularGrid(
-      this.state.svgGrid, 8, 8, this.state.start, this.state.stop
-    );
-    plotPolarLabels(
-      this.state.svgPolar, 8, 8, this.state.center, this.state.radius, this.state.val
-    )
-    plotPolarMarker(
-      this.state.svgPolar, this.state.center, this.state.radius, this.state.val, this.state.level
-    )
+    this.state.polarPlot.plotPolarGrid();
+    this.state.gridPlot.plotRectangularGrid();
   }
 
   updateLabels = () => {
-    plotPolarLabels(
-      this.state.svgPolar, 8, 8, this.state.center, this.state.radius, this.state.val
-    )
-    plotPolarMarker(
-      this.state.svgPolar, this.state.center, this.state.radius, this.state.val, this.state.level
-    )
+    this.state.polarPlot.plotPolarLabels(this.state.val);
+    this.state.polarPlot.plotPolarMarker(this.state.val, this.state.marker);
   }
 
   plotUpdate = () => {
-    plotPolarElements(
-      this.state.svgPolar, this.state.arrayElements, 8, 8, this.state.center, this.state.radius
-    );
-    plotGridElements(
-      this.state.svgGrid, this.state.arrayElements, 8, 8, this.state.start, this.state.stop, this.updateState
-    );
+    this.state.polarPlot.plotPolarElements(this.state.arrayElements);
+    this.state.gridPlot.plotGridElements(this.state.arrayElements, this.updateState);
     if(this.state.logEnabled){
-      plotLogAF(
-        this.state.svgPolar, this.state.arrayElements, this.state.center, this.state.radius, this.state.val
-      );
+      this.state.polarPlot.plotLogAF(this.state.arrayElements, this.state.val);
     } else {
-      plotLinearAF(
-        this.state.svgPolar, this.state.arrayElements, this.state.center, this.state.radius, this.state.val
-      );
+      this.state.polarPlot.plotLinearAF(this.state.arrayElements, this.state.val);
     }
   }
 
@@ -131,34 +103,25 @@ export class PhasedArray extends React.Component{
   }
 
   componentDidMount(){
-    let svgPolarContainer = d3.select(this.state.svgPolarRef.current);
-    let svgGridContainer  = d3.select(this.state.svgGridRef.current);
-    let width  = parseFloat(svgPolarContainer.style('width'));
-    let height = parseFloat(svgPolarContainer.style('height'));
-    let center = {x:width/2, y:height/2};
-    let margin = 40;
-    let start = {x:margin, y:margin};
-    let stop = {x:width-margin, y:height-margin};
-    let graphWidth = width - 2*margin;
-    let graphHeight = height - 2*margin;
-    let radius = 0.5*Math.min(graphWidth, graphHeight);
-    let svgPolar = svgPolarContainer.append('svg')
-                               .attr('width' , width)
-                               .attr('height', height);
-    let svgGrid = svgGridContainer.append('svg')
-                               .attr('width' , width)
-                               .attr('height', height);
-    let val = {min: this.minLog, max: this.maxLog};
-    let level = this.logMarker;
+    let svgContainer = d3.select(this.state.svgPolarRef.current);
+    let width  = parseFloat(svgContainer.style('width'));
+    let height = parseFloat(svgContainer.style('height'));
+    let svgPolar = svgContainer.append('svg')
+                           .attr('width' , width)
+                           .attr('height', height);
+    svgContainer = d3.select(this.state.svgGridRef.current);
+    let svgGrid = svgContainer.append('svg')
+                          .attr('width' , width)
+                          .attr('height', height);
+    let val = {min:this.minLog, max:this.maxLog};
+    let marker = this.logMarker;
     this.setState({
-      svgPolar, svgGrid,
-      width, height,
-      center, radius,
-      margin,
-      start, stop,
-      val, level
+      gridPlot: new PlotUtil(svgGrid, width, height, this.state.divisions, this.state.margin),
+      polarPlot: new PlotUtil(svgPolar, width, height, this.state.divisions, this.state.margin),
+      val, marker
     }, () => {
       this.initiateGrids();
+      this.updateLabels();
       this.plotUpdate();
     })
   };
@@ -191,12 +154,9 @@ export class PhasedArray extends React.Component{
       min: logEnabled ? this.minLog : this.minLin,
       max: logEnabled ? this.maxLog : this.maxLin,
     };
-    let level = logEnabled ? this.logMarker : this.linMarker;
-    this.setState({
-      logEnabled,
-      val,
-      level
-    },
+    let marker = logEnabled ? this.logMarker : this.linMarker;
+    this.setState(
+      {logEnabled, val, marker},
       () => {
         this.updateLabels();
         this.plotUpdate();

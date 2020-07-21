@@ -1,6 +1,6 @@
 export function arrayFactor(elements){
   let dataOut = [];
-  let discretizationNumber = 256;
+  let discretizationNumber = 512;
   let degreeRange = 360.0;
   let d2r = Math.PI/180.0;
   for(let i = 0; i < discretizationNumber; i++){
@@ -9,11 +9,7 @@ export function arrayFactor(elements){
     let out_imag = 0;
     let element;
     for(element of elements){
-      let r_vec = [
-        Math.cos(x*d2r),
-        Math.sin(x*d2r)
-      ];
-      let prod = 2*Math.PI*(r_vec[0]*element.x + r_vec[1]*element.y);
+      let prod = 2*Math.PI*(Math.cos(x*d2r)*element.x + Math.sin(x*d2r)*element.y);
       let complexAngle = (prod + element.phase*d2r)
       out_real += element.amplitude*Math.cos(-complexAngle);
       out_imag += element.amplitude*Math.sin(-complexAngle);
